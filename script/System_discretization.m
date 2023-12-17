@@ -40,8 +40,39 @@ C = [1 0 0 0;
 0 0 1 0];
 D = [0;0];
 %定义两组采样时间
-Ts_1 = 0.01;
+Ts = 0.01;
 %根据公式计算；
-Fd_1 = expm(A*Ts_1)
-Gd_1 = pinv(A)*(Fd_1-eye(size(Fd_1)))*B
+%Fd_1 = expm(A*Ts_1)
+%Gd_1 = pinv(A)*(Fd_1-eye(size(Fd_1)))*B
+sys_continuous=ss(A,B,C,D);
+sys_discrete=c2d(sys_continuous, Ts, 'zoh');
+A_discrete = sys_discrete.A;
+B_discrete = sys_discrete.B;
+C_discrete = sys_discrete.C;
+D_discrete = sys_discrete.D;
 
+% 设计离散时间 LQR 控制器
+Q = diag([4 4 6 4]);  % 状态权重矩阵
+R = 0.9;      % 输入权重矩阵
+
+[K, S, e] = dlqr(sys_discrete.A, sys_discrete.B, Q, R);
+
+sys_discrete.A=sys_discrete.A-sys_discrete.B*K;
+
+% 初始条件
+x0=[0 0 0.43 0];
+t_discrete = 0:Ts:10;  % 离散时间向量
+[row_count, col_count] = size(t_discrete);
+% 创建与 TS 相似的零矩阵
+u_discrete = zeros(row_count, col_count);%0输入
+
+[y_discrete, t_discrete, x_discrete] = lsim(sys_discrete, u_discrete, t_discrete,x0);
+
+% 绘制仿真结果
+subplot(2, 1, 1);
+plot(t_discrete, y_discrete(:,1));
+title('Output Response (Discrete Time)');
+
+subplot(2, 1, 2);
+stairs(t_discrete, y_discrete(:,1));
+title('Input Signal (Discrete Time)');
